@@ -2,41 +2,128 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Message Encryptor</title>
+  <title>Encrypt & Decrypt</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
+    * {
+      box-sizing: border-box;
     }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: white;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: linear-gradient(135deg, #1e3c72, #2a5298, #3b6978, #204051);
+      background-size: 400% 400%;
+      animation: animateBackground 20s linear infinite;
+      filter: blur(60px) brightness(0.8);
+      z-index: -1;
+    }
+
+    @keyframes animateBackground {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .container {
+      max-width: 650px;
+      margin: 80px auto;
+      padding: 30px;
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 20px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 0 25px rgba(0, 0, 0, 0.3);
+    }
+
+    h2 {
+      text-align: center;
+      margin-top: 0;
+    }
+
     label {
       display: block;
       margin-top: 20px;
       font-weight: bold;
+      font-size: 18px;
     }
+
     textarea, input[type="text"] {
       width: 100%;
       padding: 10px;
-      margin-top: 5px;
-      box-sizing: border-box;
+      margin-top: 8px;
+      border: none;
+      border-radius: 10px;
       font-size: 16px;
     }
+
     button {
-      margin-top: 20px;
-      padding: 10px 20px;
+      margin-top: 25px;
+      padding: 12px 24px;
       font-size: 16px;
+      font-weight: bold;
+      border: none;
+      border-radius: 12px;
       cursor: pointer;
+      background-color: #3b6978;
+      color: white;
+      transition: background 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #204051;
+    }
+
+    .output {
+      margin-top: 20px;
+      font-size: 16px;
+      word-break: break-all;
+      background-color: rgba(255, 255, 255, 0.05);
+      padding: 12px;
+      border-radius: 10px;
+    }
+
+    hr {
+      margin: 40px 0;
+      border: 1px solid rgba(255, 255, 255, 0.2);
     }
   </style>
 </head>
 <body>
 
-  <label for="message">Message</label>
-  <textarea id="message" placeholder="Enter your message here..."></textarea>
+  <div class="container">
+    <h2>🔐 Encrypt Message</h2>
+    <label for="message">Message</label>
+    <textarea id="message" placeholder="Enter your message here..."></textarea>
 
-  <label for="encryptionKey">Encryption Key</label>
-  <input type="text" id="encryptionKey" placeholder="Enter your key...">
+    <label for="encryptionKey">Encryption Key</label>
+    <input type="text" id="encryptionKey" placeholder="Enter your key...">
 
-  <button onclick="encryptAndCopy()">Encrypt and Copy</button>
+    <button onclick="encryptAndCopy()">Encrypt and Copy</button>
+    <div class="output" id="output"></div>
+
+    <hr>
+
+    <h2>🔓 Decrypt Message</h2>
+    <label for="encryptedInput">Encrypted String</label>
+    <textarea id="encryptedInput" placeholder="Paste the encrypted string here..."></textarea>
+
+    <label for="decryptKey">Decryption Key</label>
+    <input type="text" id="decryptKey" placeholder="Enter the key used for encryption">
+
+    <button onclick="decryptAndCopy()">Decrypt and Copy</button>
+    <div class="output" id="decryptedOutput"></div>
+  </div>
 
   <script>
     function shuffleSymbols(symbols, key) {
@@ -64,6 +151,29 @@
       return encoded;
     }
 
+    function decodeBytes(symbolGroups, shuffled, key) {
+      const base = 3;
+      const symbolMap = {};
+      shuffled.forEach((s, i) => symbolMap[s] = i);
+
+      const bytes = symbolGroups.map(group => {
+        let val = 0;
+        for (let i = 0; i < 6; i++) {
+          val = val * base + symbolMap[group[i]];
+        }
+        return val;
+      });
+
+      const decoded = [];
+      for (let i = 0; i < bytes.length; i++) {
+        const b = bytes[i];
+        const k = key.charCodeAt(i % key.length);
+        decoded.push((b - k + 256) % 256);
+      }
+
+      return String.fromCharCode(...decoded);
+    }
+
     function byteToSymbols(byte, shuffled) {
       const base = 3;
       const digits = [];
@@ -81,11 +191,25 @@
       return bytes.map(b => byteToSymbols(b, shuffled)).join('');
     }
 
+    function decryptMessage(encrypted, key) {
+      const baseSymbols = ['-', '_', '/'];
+      const shuffled = shuffleSymbols(baseSymbols, key);
+
+      const groups = [];
+      for (let i = 0; i < encrypted.length; i += 6) {
+        groups.push(encrypted.substring(i, i + 6));
+      }
+
+      return decodeBytes(groups, shuffled, key);
+    }
+
     function encryptAndCopy() {
       const msgBox = document.getElementById("message");
       const keyBox = document.getElementById("encryptionKey");
-      const message = msgBox.value;
-      const key = keyBox.value;
+      const outputDiv = document.getElementById("output");
+
+      const message = msgBox.value.trim();
+      const key = keyBox.value.trim();
 
       if (!message || !key) {
         alert("Please enter both a message and an encryption key.");
@@ -93,18 +217,43 @@
       }
 
       const result = encodeMessage(message, key);
+      outputDiv.textContent = result;
 
-      // Copy to clipboard
       navigator.clipboard.writeText(result)
-        .then(() => alert("Encrypted message copied to clipboard!"))
-        .catch(err => alert("Failed to copy to clipboard: " + err));
+        .then(() => console.log("Copied encrypted string."));
 
-      // Clear the inputs
       msgBox.value = "";
       keyBox.value = "";
     }
 
-    // Simple seeded random generator (deterministic)
+    function decryptAndCopy() {
+      const inputBox = document.getElementById("encryptedInput");
+      const keyBox = document.getElementById("decryptKey");
+      const outputDiv = document.getElementById("decryptedOutput");
+
+      const encrypted = inputBox.value.trim();
+      const key = keyBox.value.trim();
+
+      if (!encrypted || !key) {
+        alert("Please enter both the encrypted string and the key.");
+        return;
+      }
+
+      try {
+        const result = decryptMessage(encrypted, key);
+        outputDiv.textContent = result;
+
+        navigator.clipboard.writeText(result)
+          .then(() => console.log("Copied decrypted string."));
+
+        inputBox.value = "";
+        keyBox.value = "";
+      } catch (e) {
+        outputDiv.textContent = "❌ Failed to decrypt. Check your key or input!";
+      }
+    }
+
+    // Deterministic PRNG based on seed
     function seedrandom(seed) {
       let x = Math.sin(seed) * 10000;
       return function () {
