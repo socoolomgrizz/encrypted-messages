@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Message Encryption</title>
+  <title>Message Encryptor</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -13,16 +13,18 @@
       margin-top: 20px;
       font-weight: bold;
     }
-    input[type="text"], textarea {
+    textarea, input[type="text"] {
       width: 100%;
       padding: 10px;
       margin-top: 5px;
       box-sizing: border-box;
       font-size: 16px;
     }
-    textarea {
-      resize: vertical;
-      height: 100px;
+    button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -33,6 +35,84 @@
 
   <label for="encryptionKey">Encryption Key</label>
   <input type="text" id="encryptionKey" placeholder="Enter your key...">
+
+  <button onclick="encryptAndCopy()">Encrypt and Copy</button>
+
+  <script>
+    function shuffleSymbols(symbols, key) {
+      const shuffled = [...symbols];
+      let seed = 0;
+      for (let i = 0; i < key.length; i++) {
+        seed = (seed + key.charCodeAt(i)) % 256;
+      }
+
+      let rng = seedrandom(seed);
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled;
+    }
+
+    function encodeBytes(msg, key) {
+      const encoded = [];
+      for (let i = 0; i < msg.length; i++) {
+        const m = msg.charCodeAt(i);
+        const k = key.charCodeAt(i % key.length);
+        encoded.push((m + k) % 256);
+      }
+      return encoded;
+    }
+
+    function byteToSymbols(byte, shuffled) {
+      const base = 3;
+      const digits = [];
+      for (let i = 0; i < 6; i++) {
+        digits.unshift(byte % base);
+        byte = Math.floor(byte / base);
+      }
+      return digits.map(d => shuffled[d]).join('');
+    }
+
+    function encodeMessage(msg, key) {
+      const baseSymbols = ['-', '_', '/'];
+      const shuffled = shuffleSymbols(baseSymbols, key);
+      const bytes = encodeBytes(msg, key);
+      return bytes.map(b => byteToSymbols(b, shuffled)).join('');
+    }
+
+    function encryptAndCopy() {
+      const msgBox = document.getElementById("message");
+      const keyBox = document.getElementById("encryptionKey");
+      const message = msgBox.value;
+      const key = keyBox.value;
+
+      if (!message || !key) {
+        alert("Please enter both a message and an encryption key.");
+        return;
+      }
+
+      const result = encodeMessage(message, key);
+
+      // Copy to clipboard
+      navigator.clipboard.writeText(result)
+        .then(() => alert("Encrypted message copied to clipboard!"))
+        .catch(err => alert("Failed to copy to clipboard: " + err));
+
+      // Clear the inputs
+      msgBox.value = "";
+      keyBox.value = "";
+    }
+
+    // Simple seeded random generator (deterministic)
+    function seedrandom(seed) {
+      let x = Math.sin(seed) * 10000;
+      return function () {
+        x = Math.sin(x) * 10000;
+        return x - Math.floor(x);
+      };
+    }
+  </script>
 
 </body>
 </html>
